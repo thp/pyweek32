@@ -24,6 +24,7 @@ howto = '\n'.join(__doc__.splitlines()[1:])
 print(howto)
 
 from sdl2 import *
+from sdl2.sdlmixer import *
 from ctypes import *
 from OpenGL.GL import *
 
@@ -34,12 +35,18 @@ from random import choice
 
 SDL_Init(SDL_INIT_EVERYTHING)
 
+Mix_Init(0)
+Mix_OpenAudio(44100, AUDIO_S16, 1, 1024)
+
 w = 960
 h = 540
 aspect = w / h
 
 lanes = 3
 chunks = 13
+
+explosion_sound = Mix_LoadWAV('explosion.wav'.encode())
+jump_sounds = [Mix_LoadWAV(f'jump{lane}.wav'.encode()) for lane in range(lanes)]
 
 SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1)
 SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 4)
@@ -120,6 +127,7 @@ def render():
         current_lane = next_lane
         last_pos = pos
         score += 1
+        Mix_PlayChannel(-1, jump_sounds[current_lane], 0)
         last_collision_coordinate = None
 
     vis_a_vis = (int(pos) + int(chunks/2) + 1) % chunks
@@ -150,6 +158,7 @@ def render():
                     collision_coordinate = (j, i)
                     if last_collision_coordinate != collision_coordinate:
                         print('collision', j, i)
+                        Mix_PlayChannel(-1, explosion_sound, 0)
                         health -= 1
                         if health == 0:
                             print(f"""
