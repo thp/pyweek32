@@ -1,4 +1,27 @@
-"Neverending - PyWeek 0b100000 (32) - Thomas Perl (thp.io)"
+"""
+Mary, Go Round! - PyWeek #32 - Thomas Perl (thp.io)
+
+How to play:
+
+    You are the WHITE THING ("MARY").
+    You go ROUND.
+    Avoid GAPS to achieve HIGH SCORE.
+    Use UP and DOWN arrow keys to set the next lane.
+
+Dependencies:
+
+    PySDL2 (+ SDL2 + SDL2_mixer)
+    PyOpenGL (+ some kind of OpenGL driver)
+
+This uses the fancy old fixed function pipeline of OpenGL. All is good.
+If your (i)GPU is really old, disable the SDL_GL_SetAttribute lines.
+
+"""
+
+title = __doc__.strip().splitlines()[0]
+howto = '\n'.join(__doc__.splitlines()[1:])
+
+print(howto)
 
 from sdl2 import *
 from ctypes import *
@@ -21,7 +44,7 @@ chunks = 13
 SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1)
 SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 4)
 
-win = SDL_CreateWindow(__doc__.encode(), SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, w, h, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN)
+win = SDL_CreateWindow(title.encode(), SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, w, h, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN)
 
 
 ctx = SDL_GL_CreateContext(win)
@@ -60,9 +83,9 @@ rotate = 0
 current_lane = 0
 next_lane = 0
 
+# difficulty settings
 max_per_lane = 5
 rotation_delta = 0.001
-
 
 def update(dt):
     global rotate, rotation_delta
@@ -75,7 +98,7 @@ last_pos = None
 last_collision = False
 last_collision_coordinate = None
 score = 0
-max_health = 10
+max_health = 7
 health = max_health
 
 def render():
@@ -123,14 +146,19 @@ def render():
             collision = (current_lane == j and (i == (pos%chunks)))
 
             if walls[j][i]:
-                #brick(j, i, (0, 0, 0), False, 1.0)
                 if collision:
                     collision_coordinate = (j, i)
                     if last_collision_coordinate != collision_coordinate:
                         print('collision', j, i)
                         health -= 1
                         if health == 0:
-                            print(f'Final score: {score}')
+                            print(f"""
+    Final score: {score}
+
+    Thank you for playing :)
+    Website: https://thp.io/
+    Itch.io: https://thp.itch.io/
+""")
                             raise SystemExit()
                     last_collision_coordinate = collision_coordinate
                     last_collision = True
@@ -148,7 +176,7 @@ quit = False
 
 e = SDL_Event()
 while not quit:
-    SDL_SetWindowTitle(win, f'{__doc__} -- Score: {score} -- Health: {health}/{max_health}'.encode())
+    SDL_SetWindowTitle(win, f'{title} -- Score: {score} -- Health: {health}/{max_health}'.encode())
     while SDL_PollEvent(byref(e)):
         if e.type == SDL_QUIT:
             quit = True
