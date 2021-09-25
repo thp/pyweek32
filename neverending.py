@@ -1,3 +1,5 @@
+"Neverending - PyWeek 0b100000 (32) - Thomas Perl (thp.io)"
+
 from sdl2 import *
 from ctypes import *
 from OpenGL.GL import *
@@ -16,8 +18,11 @@ aspect = w / h
 lanes = 3
 chunks = 13
 
-win = SDL_CreateWindow(b'Neverending - PyWeek 0b100000 (32) - thp.io',
-        SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, w, h, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN)
+SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1)
+SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 4)
+
+win = SDL_CreateWindow(__doc__.encode(), SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, w, h, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN)
+
 
 ctx = SDL_GL_CreateContext(win)
 
@@ -55,19 +60,33 @@ rotate = 0
 current_lane = 0
 next_lane = 0
 
+max_per_lane = 5
+rotation_delta = 0.001
+
+
 def update(dt):
-    global rotate
-    rotate += 0.0002 * dt
+    global rotate, rotation_delta
+    rotate += rotation_delta * dt
 
 walls = [[False for chunk in range(chunks)] for lane in range(lanes)]
 
 last_chunk_laid = None
 last_pos = None
+last_collision = False
+last_collision_coordinate = None
+score = 0
+max_health = 10
+health = max_health
 
 def render():
-    global last_chunk_laid, last_pos, current_lane, next_lane
+    global last_chunk_laid, last_pos, current_lane, next_lane, last_collision, last_collision_coordinate, score, health
 
-    glClearColor(.2, .2, .2, 1)
+    if last_collision:
+        glClearColor(1, 1, 1, 1)
+        last_collision = False
+    else:
+        glClearColor(.1, .1, .1, 1)
+
     glClear(GL_COLOR_BUFFER_BIT)
 
     glEnable(GL_BLEND)
@@ -77,6 +96,8 @@ def render():
     if last_pos != pos:
         current_lane = next_lane
         last_pos = pos
+        score += 1
+        last_collision_coordinate = None
 
     vis_a_vis = (int(pos) + int(chunks/2) + 1) % chunks
     if last_chunk_laid != vis_a_vis:
@@ -85,17 +106,16 @@ def render():
         put_lane = choice(list(range(lanes)))
         on_this_lane = sum(chunk for chunk in walls[put_lane])
         on_this_chunk = sum(walls[lane][vis_a_vis] for lane in range(lanes))
-        print('on:', on_this_lane, on_this_chunk)
-        if on_this_lane < 3 and on_this_chunk == 0 and last_chunk_laid is not None and not walls[put_lane][last_chunk_laid]:
+        if on_this_lane < max_per_lane and on_this_chunk == 0 and last_chunk_laid is not None and not walls[put_lane][last_chunk_laid]:
             walls[put_lane][vis_a_vis] = choice([True, False, False])
         last_chunk_laid = vis_a_vis
 
-    hue_delta = 0.1
+    hue_delta = 0.3
 
     lane_hues = [rotate*0.1+i*hue_delta for i in range(lanes)]
 
     for i in range(chunks):
-        colors = [hsv_to_rgb(hue%1, 0.5+0.5*(i+rotate)%2, 0.9) for hue in lane_hues]
+        colors = [hsv_to_rgb(hue%1, 0.5+0.2*(i+rotate)%2, 0.8) for hue in lane_hues]
 
         for j in range(lanes):
             c = colors[j]
@@ -103,9 +123,17 @@ def render():
             collision = (current_lane == j and (i == (pos%chunks)))
 
             if walls[j][i]:
-                brick(j, i, (0, 0, 0), False, 1.0)
+                #brick(j, i, (0, 0, 0), False, 1.0)
                 if collision:
-                    print('collision', j, i)
+                    collision_coordinate = (j, i)
+                    if last_collision_coordinate != collision_coordinate:
+                        print('collision', j, i)
+                        health -= 1
+                        if health == 0:
+                            print(f'Final score: {score}')
+                            raise SystemExit()
+                    last_collision_coordinate = collision_coordinate
+                    last_collision = True
             else:
                 brick(j, i, c, False, 1.0)
 
@@ -120,12 +148,12 @@ quit = False
 
 e = SDL_Event()
 while not quit:
+    SDL_SetWindowTitle(win, f'{__doc__} -- Score: {score} -- Health: {health}/{max_health}'.encode())
     while SDL_PollEvent(byref(e)):
         if e.type == SDL_QUIT:
             quit = True
             break
         elif e.type == SDL_KEYDOWN and e.key.repeat == 0:
-            # TODO: directional thing
             if e.key.keysym.sym == SDLK_UP:
                 next_lane = min(lanes-1, (current_lane + 1))
             elif e.key.keysym.sym == SDLK_DOWN:
