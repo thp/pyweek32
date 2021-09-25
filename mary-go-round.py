@@ -1,10 +1,10 @@
 """
-Mary, Go Round! - PyWeek #32 - Thomas Perl (thp.io)
+Mary, Go Round! - PyWeek #32 (2021-09-25) - Thomas Perl (thp.io)
 
 How to play:
 
     You are the WHITE THING ("MARY").
-    You go ROUND.
+    You GO ROUND.
     Avoid GAPS to achieve HIGH SCORE.
     Use UP and DOWN arrow keys to set the next lane.
 
@@ -15,6 +15,11 @@ Dependencies:
 
 This uses the fancy old fixed function pipeline of OpenGL. All is good.
 If your (i)GPU is really old, disable the SDL_GL_SetAttribute lines.
+
+Again, I didn't have much time this week to do a submission, but like
+in PyWeek#31, I had some time today (~ 2 hours) to come up with this
+game. Just plain simple retro OpenGL, going round and round. I didn't
+even have time to clean it up, so it's a bit dirty.
 
 """
 
@@ -31,7 +36,6 @@ from OpenGL.GL import *
 from math import sin, cos, pi
 from colorsys import hsv_to_rgb
 from random import choice
-
 
 SDL_Init(SDL_INIT_EVERYTHING)
 
@@ -56,7 +60,7 @@ win = SDL_CreateWindow(title.encode(), SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CEN
 
 ctx = SDL_GL_CreateContext(win)
 
-def brick(layer, chunk, color, fat, alpha):
+def brick(layer, chunk, color, is_player, alpha):
     angle0 = -rotate + (chunk * 360 / chunks) / 180 * pi
     angle1 = -rotate + ((chunk + 1) * 360 / chunks) / 180 * pi
 
@@ -73,13 +77,12 @@ def brick(layer, chunk, color, fat, alpha):
     r0 = inner + step * (2 - layer)
     r1 = r0 + width
 
-    if fat:
+    if is_player:
         r0 -= 0.03
         r1 += 0.03
 
     glBegin(GL_TRIANGLE_STRIP)
     glColor(*color, alpha)
-    # inner 0 -- inner 1, inner
     glVertex2f(r0 * s0 / aspect, r0 * c0)
     glVertex2f(r0 * s1 / aspect, r0 * c1)
     glVertex2f(r1 * s0 / aspect, r1 * c0)
@@ -92,11 +95,9 @@ next_lane = 0
 
 # difficulty settings
 max_per_lane = 5
-rotation_delta = 0.001
-
-def update(dt):
-    global rotate, rotation_delta
-    rotate += rotation_delta * dt
+rotation_delta_initial = 0.001
+rotation_delta_step = 0.00001
+rotation_delta = rotation_delta_initial
 
 walls = [[False for chunk in range(chunks)] for lane in range(lanes)]
 
@@ -108,8 +109,27 @@ score = 0
 max_health = 7
 health = max_health
 
-def render():
-    global last_chunk_laid, last_pos, current_lane, next_lane, last_collision, last_collision_coordinate, score, health
+started = SDL_GetTicks()
+
+quit = False
+
+e = SDL_Event()
+while not quit:
+    SDL_SetWindowTitle(win, f'{title} -- Score: {score} -- Health: {health}/{max_health}'.encode())
+    while SDL_PollEvent(byref(e)):
+        if e.type == SDL_QUIT:
+            quit = True
+            break
+        elif e.type == SDL_KEYDOWN and e.key.repeat == 0:
+            if e.key.keysym.sym == SDLK_UP:
+                next_lane = min(lanes-1, (current_lane + 1))
+            elif e.key.keysym.sym == SDLK_DOWN:
+                next_lane = max(0, (current_lane - 1))
+        #print(e)
+
+    now = SDL_GetTicks()
+    rotate += rotation_delta * (now - started)
+    started = now
 
     if last_collision:
         glClearColor(1, 1, 1, 1)
@@ -127,6 +147,7 @@ def render():
         current_lane = next_lane
         last_pos = pos
         score += 1
+        rotation_delta += rotation_delta_step
         Mix_PlayChannel(-1, jump_sounds[current_lane], 0)
         last_collision_coordinate = None
 
@@ -157,7 +178,6 @@ def render():
                 if collision:
                     collision_coordinate = (j, i)
                     if last_collision_coordinate != collision_coordinate:
-                        print('collision', j, i)
                         Mix_PlayChannel(-1, explosion_sound, 0)
                         health -= 1
                         if health == 0:
@@ -177,31 +197,6 @@ def render():
     brick(current_lane, pos, (1, 1, 1), True, 0.9)
     brick(next_lane, (pos+1)%chunks, (1, 1, 1), True, 0.3)
 
-
-
-started = SDL_GetTicks()
-
-quit = False
-
-e = SDL_Event()
-while not quit:
-    SDL_SetWindowTitle(win, f'{title} -- Score: {score} -- Health: {health}/{max_health}'.encode())
-    while SDL_PollEvent(byref(e)):
-        if e.type == SDL_QUIT:
-            quit = True
-            break
-        elif e.type == SDL_KEYDOWN and e.key.repeat == 0:
-            if e.key.keysym.sym == SDLK_UP:
-                next_lane = min(lanes-1, (current_lane + 1))
-            elif e.key.keysym.sym == SDLK_DOWN:
-                next_lane = max(0, (current_lane - 1))
-        #print(e)
-
-    now = SDL_GetTicks()
-    update(now - started)
-    started = now
-
-    render()
     SDL_GL_SwapWindow(win)
 
 SDL_GL_DeleteContext(ctx)
